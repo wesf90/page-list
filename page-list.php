@@ -1,11 +1,11 @@
 <?php
 /*
-Plugin Name: Page-list
-Plugin URI: http://wordpress.org/plugins/page-list/
-Description: [pagelist], [subpages], [siblings] and [pagelist_ext] shortcodes
-Version: 5.1
-Author: webvitaly
-Author URI: http://web-profile.net/wordpress/plugins/
+Plugin Name: Page-list by WESFED (Do not update)
+Plugin URI: https://github.com/wesf90/page-list
+Description: [pagelist], [subpages], [siblings], [topparent] and [pagelist_ext] shortcodes. Adapted from https://github.com/webvitalii/page-list
+Version: 1.0
+Author: Wes Foster from WESFED
+Author URI: https://www.wesfed.com
 License: GPLv3
 */
 
@@ -13,7 +13,7 @@ define('PAGE_LIST_PLUGIN_VERSION', '5.1');
 
 $pagelist_unq_settings = array(
 	'version' => PAGE_LIST_PLUGIN_VERSION,
-	'powered_by' => "\n".'<!-- Page-list plugin v.'.PAGE_LIST_PLUGIN_VERSION.' wordpress.org/plugins/page-list/ -->'."\n",
+	'powered_by' => "",
 	'page_list_defaults' => array(
 		'depth' => '0',
 		'child_of' => '0',
@@ -34,6 +34,9 @@ $pagelist_unq_settings = array(
 		'link_after' => '',
 		'post_type' => 'page',
 		'post_status' => 'publish',
+		'if_empty' => '<!-- no pages to show -->',
+		'list_id' => '',
+		'list_ids' => array(),
 		'class' => ''
 	)
 );
@@ -57,6 +60,68 @@ if ( !function_exists('pagelist_unqprfx_shortcode') ) {
 			'depth'        => $depth,
 			'child_of'     => pagelist_unqprfx_norm_params($child_of),
 			'exclude'      => pagelist_unqprfx_norm_params($exclude),
+			'exclude_tree' => pagelist_unqprfx_norm_params($exclude_tree),
+			'include'      => pagelist_unqprfx_norm_params($include),
+			'title_li'     => $title_li,
+			'number'       => $number,
+			'offset'       => $offset,
+			'meta_key'     => $meta_key,
+			'meta_value'   => $meta_value,
+			'show_date'    => $show_date,
+			'date_format'  => $date_format,
+			'echo'         => 0,
+			'authors'      => $authors,
+			'sort_column'  => $sort_column,
+			'sort_order'   => $sort_order,
+			'link_before'  => $link_before,
+			'link_after'   => $link_after,
+			'post_type'    => $post_type,
+			'if_empty'		 => $if_empty,
+			'list_id' 		 => $list_id,
+			'post_status'  => $post_status
+		);
+		
+		if ( !pagelist_unqprfk_show_this_list_id($list_id) )
+			return '';
+
+		$list_pages = wp_list_pages( $page_list_args );
+
+		$return .= $pagelist_unq_settings['powered_by'];
+		if ($list_pages) {
+			$return .= '<ul class="page-list '.$class.'">'."\n".$list_pages."\n".'</ul>';
+		} else {
+			return pagelist_unqprfx_if_empty_parse( $if_empty );
+		}
+		return $return;
+	}
+	add_shortcode( 'pagelist', 'pagelist_unqprfx_shortcode' );
+	add_shortcode( 'page_list', 'pagelist_unqprfx_shortcode' );
+	add_shortcode( 'page-list', 'pagelist_unqprfx_shortcode' ); // not good (Shortcode names should be all lowercase and use all letters, but numbers and underscores (not dashes!) should work fine too.)
+	add_shortcode( 'sitemap', 'pagelist_unqprfx_shortcode' );
+}
+
+
+if ( !function_exists('topparent_unqprfx_shortcode') ) {
+	function topparent_unqprfx_shortcode( $atts ) {
+		global $post, $pagelist_unq_settings;
+		$return = '';
+		extract( shortcode_atts( $pagelist_unq_settings['page_list_defaults'], $atts ) );
+
+		// Get the top-most ancestor
+		// Credit: https://css-tricks.com/snippets/wordpress/find-id-of-top-most-parent-page/
+		if ($post->post_parent)	{
+			$ancestors = get_post_ancestors($post->ID);
+			$root = count($ancestors)-1;
+			$parent = $ancestors[$root];
+		}
+		else {
+			$parent = $post->ID;
+		}
+
+		$page_list_args = array(
+			'depth'        => $depth,
+			'child_of'     => $parent,
+			'exclude'      => pagelist_unqprfx_norm_params($exclude),
 			'exclude_tree' => $exclude_tree,
 			'include'      => $include,
 			'title_li'     => $title_li,
@@ -73,22 +138,26 @@ if ( !function_exists('pagelist_unqprfx_shortcode') ) {
 			'link_before'  => $link_before,
 			'link_after'   => $link_after,
 			'post_type'    => $post_type,
+			'if_empty'	   => $if_empty,
+			'list_id' 		 => $list_id,
 			'post_status'  => $post_status
 		);
+		
+ 		if ( !pagelist_unqprfk_show_this_list_id($list_id) )
+ 			return '';
+
 		$list_pages = wp_list_pages( $page_list_args );
 
 		$return .= $pagelist_unq_settings['powered_by'];
 		if ($list_pages) {
-			$return .= '<ul class="page-list '.$class.'">'."\n".$list_pages."\n".'</ul>';
+			$return .= '<ul class="page-list topparent-page-list '.$class.'">'."\n".$list_pages."\n".'</ul>';
 		} else {
-			$return .= '<!-- no pages to show -->';
+			return pagelist_unqprfx_if_empty_parse( $if_empty );
 		}
 		return $return;
 	}
-	add_shortcode( 'pagelist', 'pagelist_unqprfx_shortcode' );
-	add_shortcode( 'page_list', 'pagelist_unqprfx_shortcode' );
-	add_shortcode( 'page-list', 'pagelist_unqprfx_shortcode' ); // not good (Shortcode names should be all lowercase and use all letters, but numbers and underscores (not dashes!) should work fine too.)
-	add_shortcode( 'sitemap', 'pagelist_unqprfx_shortcode' );
+	add_shortcode( 'topparent', 'topparent_unqprfx_shortcode' );
+	add_shortcode( 'top_parent', 'topparent_unqprfx_shortcode' );
 }
 
 
@@ -118,15 +187,21 @@ if ( !function_exists('subpages_unqprfx_shortcode') ) {
 			'link_before'  => $link_before,
 			'link_after'   => $link_after,
 			'post_type'    => $post_type,
+			'if_empty'	   => $if_empty,
+			'list_id' 		 => $list_id,
 			'post_status'  => $post_status
 		);
+		
+ 		if ( !pagelist_unqprfk_show_this_list_id($list_id) )
+ 			return '';
+
 		$list_pages = wp_list_pages( $page_list_args );
 
 		$return .= $pagelist_unq_settings['powered_by'];
 		if ($list_pages) {
 			$return .= '<ul class="page-list subpages-page-list '.$class.'">'."\n".$list_pages."\n".'</ul>';
 		} else {
-			$return .= '<!-- no pages to show -->';
+			return pagelist_unqprfx_if_empty_parse( $if_empty );
 		}
 		return $return;
 	}
@@ -165,15 +240,21 @@ if ( !function_exists('siblings_unqprfx_shortcode') ) {
 			'link_before'  => $link_before,
 			'link_after'   => $link_after,
 			'post_type'    => $post_type,
+			'if_empty'	   => $if_empty,
+			'list_id' 		 => $list_id,
 			'post_status'  => $post_status
 		);
+
+		if ( !pagelist_unqprfk_show_this_list_id($list_id) )
+			return '';
+
 		$list_pages = wp_list_pages( $page_list_args );
 
 		$return .= $pagelist_unq_settings['powered_by'];
 		if ($list_pages) {
 			$return .= '<ul class="page-list siblings-page-list '.$class.'">'."\n".$list_pages."\n".'</ul>';
 		} else {
-			$return .= '<!-- no pages to show -->';
+			return pagelist_unqprfx_if_empty_parse( $if_empty );
 		}
 		return $return;
 	}
@@ -389,7 +470,7 @@ if ( !function_exists('pagelist_unqprfx_ext_shortcode') ) {
 		if ($list_pages_html) {
 			$return .= '<div class="page-list page-list-ext '.$class.'">'."\n".$list_pages_html."\n".'</div>';
 		} else {
-			$return .= '<!-- no pages to show -->'; // this line will not work, because we show all pages if there is no pages to show
+			return pagelist_unqprfx_if_empty_parse( $if_empty ); // this line will not work, because we show all pages if there is no pages to show
 		}
 		return $return;
 	}
@@ -484,13 +565,40 @@ if ( ! function_exists('pagelist_unqprfx_plugin_meta') ) {
 	function pagelist_unqprfx_plugin_meta( $links, $file ) { // add links to plugin meta row
 		if ( $file == plugin_basename( __FILE__ ) ) {
 			$row_meta = array(
-				'support' => '<a href="http://web-profile.net/wordpress/plugins/page-list/" target="_blank"><span class="dashicons dashicons-editor-help"></span> ' . __( 'Page-list', 'page-list' ) . '</a>',
-				'donate' => '<a href="http://web-profile.net/donate/" target="_blank"><span class="dashicons dashicons-heart"></span> ' . __( 'Donate', 'page-list' ) . '</a>',
-				'pro' => '<a href="http://codecanyon.net/item/antispam-pro/6491169?ref=webvitalii" target="_blank" title="Speedup and protect WordPress in a smart way"><span class="dashicons dashicons-star-filled"></span> ' . __( 'Silver Bullet Pro', 'page-list' ) . '</a>'
+				'support' => '<a href="http://web-profile.net/wordpress/plugins/page-list/" target="_blank"><span class="dashicons dashicons-editor-help"></span> ' . __( 'Page-list', 'page-list' ) . '</a>'
 			);
 			$links = array_merge( $links, $row_meta );
 		}
 		return (array) $links;
 	}
 	add_filter( 'plugin_row_meta', 'pagelist_unqprfx_plugin_meta', 10, 2 );
+}
+
+
+if ( ! function_exists('pagelist_unqprfx_if_empty_parse') ) {
+	function pagelist_unqprfx_if_empty_parse( $content ) {
+		global $pagelist_unq_settings;
+		
+		if ( preg_match('/show_list_([0-9])+/', $content, $m) ) {
+			$pagelist_unq_settings['list_ids'][] = $m[1];
+			return '';
+		}
+		else {
+			return $content;
+		}
+	}
+}
+
+if ( ! function_exists('pagelist_unqprfk_show_this_list_id') ) {
+	function pagelist_unqprfk_show_this_list_id( $list_id ) {
+		global $pagelist_unq_settings;
+
+		if ( !empty($list_id) ) {
+			if ( !in_array($list_id, $pagelist_unq_settings['list_ids']) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 }
